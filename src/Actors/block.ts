@@ -1,0 +1,48 @@
+import { Actor, CollisionType, Color, DegreeOfFreedom, Engine, Material, Random, Shader, vec, Vector } from "excalibur";
+import { rockyMaterial } from "../Shaders/rockMaterial";
+
+export class Block extends Actor {
+  material: Material | null = null;
+  rng: Random;
+  constructor(pos: Vector) {
+    let rng = new Random();
+    super({
+      z: 1,
+      pos: pos,
+      width: rng.integer(25, 75),
+      height: rng.integer(25, 75),
+      collisionType: CollisionType.Active,
+      color: Color.Transparent,
+      //vel: vec(0, 10),
+      //acc: vec(0, 25),
+    });
+    this.rng = rng;
+    this.body.limitDegreeOfFreedom.push(DegreeOfFreedom.Rotation);
+    this.body.useGravity = true;
+  }
+
+  onInitialize(engine: Engine): void {
+    this.material = engine.graphicsContext.createMaterial({
+      fragmentSource: rockyMaterial,
+      name: "rockyMaterial",
+    });
+
+    this.graphics.material = this.material;
+
+    this.material.update((s: Shader) => {
+      s.trySetUniformFloat("u_roughness", 0.8);
+      s.trySetUniformFloatColor("u_baseColor", Color.fromHex("#9db01a"));
+      s.trySetUniformFloatColor("u_bgColor", Color.fromHex("#5b5c46"));
+      s.trySetUniformFloat("u_borderSize", 0.004);
+    });
+  }
+}
+
+function randomHexColor(rng: Random) {
+  return (
+    "#" +
+    Math.floor(rng.next() * 0xffffff)
+      .toString(16)
+      .padStart(6, "0")
+  );
+}
