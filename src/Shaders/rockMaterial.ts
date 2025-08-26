@@ -1,19 +1,22 @@
 export const rockyMaterial = `#version 300 es
 precision mediump float;
 
+uniform float u_seed;
+
 uniform vec2 u_resolution;
 uniform float u_roughness;
 uniform float u_time;
-uniform vec4 u_baseColor;  // main rock color
-uniform vec4 u_bgColor;    // background color
-uniform float u_borderSize; // thickness of border in UV space (0.0–0.5)
+uniform vec4 u_baseColor;   // main rock color
+uniform vec4 u_bgColor;     // background color
+uniform float u_borderSize; // thickness of border in UV space (0.0 -> 0.5)
 
 in vec2 v_uv;
 out vec4 fragColor;
 
 // Simple 2D noise function
 float random(vec2 st) {
-  return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+  // Fold in seed so each actor hashes differently
+  return fract(sin(dot(st.xy + u_seed, vec2(12.9898,78.233))) * 43758.5453123);
 }
 
 float noise(vec2 st) {
@@ -31,28 +34,62 @@ float noise(vec2 st) {
          (c - a)* u.y * (1.0 - u.x) +
          (d - b) * u.x * u.y;
 }
+         
+// Rounded rectangle SDF
+float roundedRectSDF(vec2 uv, vec2 size, float radius) {
+    // center uv around (0.0,0.0), range -0.5..0.5
+    vec2 p = uv - 0.5;
 
-void main() {
-  // Scale UV for noise
-  
+    // half-size of rect
+    vec2 _half = size * 0.5;
 
-vec2 st = v_uv * 10.0 * u_roughness + vec2(u_time);
-float n = noise(st);
-n = pow(n, 3.0); // makes darks darker, lights sharper
+    // distance to edges with corner radius
+    vec2 d = abs(p) - _half + vec2(radius);
 
-  // Blend between background and rock
-  vec4 rockColor = mix(u_bgColor, u_baseColor, n);
+    float outsideDist = length(max(d, 0.0)) - radius;
+    float insideDist = min(max(d.x, d.y), 0.0);
 
-  // Border effect (simple UV check)
-  float border = step(v_uv.x, u_borderSize) +
-                 step(v_uv.y, u_borderSize) +
-                 step(1.0 - v_uv.x, u_borderSize) +
-                 step(1.0 - v_uv.y, u_borderSize);
-
-  if (border > 0.0) {
-  rockColor = u_baseColor; // <-- use background color instead of black
+    return outsideDist + insideDist; // < 0 inside, > 0 outside
 }
 
-  fragColor = rockColor;
+
+void main() {
+  // --- derive per-actor offset and scale from seed ---
+  float seedX = fract(sin(u_seed * 91.7) * 43758.5453);
+  float seedY = fract(sin(u_seed * 12.3) * 12345.6789);
+  vec2 seedOffset = vec2(seedX, seedY) * 50.0;   // big offset to decorrelate blocks
+  float seedScale = 8.0 + 4.0 * seedX;           // vary noise scale per actor
+
+  // --- noise sampling ---
+  vec2 st = v_uv * seedScale * u_roughness + seedOffset;
+
+ float freq = 3.0 + fract(u_seed) * 5.0; // 3 → 8 range
+float n = noise(v_uv * freq + u_seed);
+  n = pow(n, 3.0); // makes darks darker, lights sharper
+
+  // --- blend between background and rock ---
+  vec4 rockColor = mix(u_bgColor, u_baseColor, n);
+
+  // --- border effect (simple rectangular border) ---
+ // control rounded corners
+  float radius = 0.15; // 0.0 = square, higher = rounder
+  float sdf = roundedRectSDF(v_uv, vec2(1.0), radius);
+
+  // border threshold
+  float border = smoothstep(0.0, 0.01, sdf + u_borderSize) -
+               smoothstep(0.0, 0.01, sdf);
+
+               if (sdf > 0.0) {
+    // Outside shape → transparent (or background color if you prefer)
+    fragColor = vec4(0.);
+} else if (border > 0.0) {
+    // Border zone
+    fragColor = u_baseColor;
+} else {
+    // Inside rock pattern
+    fragColor = rockColor;
+}
+
+
 }
 `;

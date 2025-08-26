@@ -4,8 +4,9 @@ import { rockyMaterial } from "../Shaders/rockMaterial";
 export class Block extends Actor {
   material: Material | null = null;
   rng: Random;
-  constructor(pos: Vector) {
-    let rng = new Random();
+  constructor(pos: Vector, seed:number) {
+    
+    let rng = new Random(seed);
     super({
       z: 1,
       pos: pos,
@@ -17,6 +18,7 @@ export class Block extends Actor {
       //acc: vec(0, 25),
     });
     this.rng = rng;
+    
     this.body.limitDegreeOfFreedom.push(DegreeOfFreedom.Rotation);
     this.body.useGravity = true;
   }
@@ -28,8 +30,10 @@ export class Block extends Actor {
     });
 
     this.graphics.material = this.material;
-
+  const seed = this.rng.next( );
+    
     this.material.update((s: Shader) => {
+      s.trySetUniformFloat('u_seed', seed)
       s.trySetUniformFloat("u_roughness", 0.8);
       s.trySetUniformFloatColor("u_baseColor", Color.fromHex("#9db01a"));
       s.trySetUniformFloatColor("u_bgColor", Color.fromHex("#5b5c46"));

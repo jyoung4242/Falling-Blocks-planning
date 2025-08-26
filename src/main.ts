@@ -2,7 +2,7 @@
 import "./style.css";
 
 import { UI } from "@peasy-lib/peasy-ui";
-import { Engine, DisplayMode, Color, SolverStrategy, PointerEvent, PointerButton, vec, PhysicsConfig } from "excalibur";
+import { Engine, DisplayMode, Color, SolverStrategy, PointerEvent, PointerButton, vec, PhysicsConfig, Random } from "excalibur";
 import { model, template } from "./UI/UI";
 import { loader } from "./resources";
 import { Pit } from "./Actors/pit";
@@ -28,6 +28,8 @@ const game = new Engine({
   fixedUpdateFps: 30,
 });
 
+const rng = new Random();
+
 await game.start(loader);
 game.add(new Pit());
 game.add(new PitOverlay());
@@ -35,5 +37,5 @@ game.add(new PitOverlay());
 game.input.pointers.primary.on("down", (e: PointerEvent) => {
   if (e.button != PointerButton.Left) return;
   let mPos = game.input.pointers.primary.lastWorldPos;
-  game.add(new Block(mPos));
+  game.add(new Block(mPos, rng.nextInt()));
 });
