@@ -2,17 +2,22 @@ import {
   Actor,
   Animation,
   AnimationStrategy,
+  Collider,
+  CollisionContact,
   CollisionType,
   DegreeOfFreedom,
   Engine,
   Keys,
   Material,
   Shader,
+  Side,
   SpriteSheet,
   vec,
 } from "excalibur";
 import { Resources } from "../resources";
 import { staminaShader } from "../Shaders/stamina";
+import { playercolliderGroup } from "../collisionGroups";
+import { Block } from "./block";
 
 // define stamina costs
 // jumping - 5 units
@@ -22,7 +27,7 @@ import { staminaShader } from "../Shaders/stamina";
 
 export class FrogPlayer extends Actor {
   maxStamina = 100;
-  currentStamina = 60;
+  currentStamina = 100;
   staminaRechargeRate = 1.5;
   material: Material | null = null;
 
@@ -42,6 +47,7 @@ export class FrogPlayer extends Actor {
       z: 3,
       radius: 10,
       collisionType: CollisionType.Active,
+      collisionGroup: playercolliderGroup,
     });
     this.graphics.use(frogAnimationIdleRight);
     this.body.useGravity = true;
@@ -56,6 +62,12 @@ export class FrogPlayer extends Actor {
     });
 
     this.graphics.material = this.material;
+  }
+
+  onCollisionStart(self: Collider, other: Collider, side: Side, contact: CollisionContact): void {
+    if (other.owner instanceof Block && side == Side.Top) {
+      this.currentStamina -= 25;
+    }
   }
 
   keyDown(key: Keys) {

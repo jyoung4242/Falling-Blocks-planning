@@ -1,5 +1,6 @@
 import { Actor, CollisionType, Color, DegreeOfFreedom, Engine, Material, Random, Shader, vec, Vector } from "excalibur";
 import { rockyMaterial } from "../Shaders/rockMaterial";
+import { blockcolliderGroup } from "../collisionGroups";
 
 export class Block extends Actor {
   material: Material | null = null;
@@ -15,13 +16,14 @@ export class Block extends Actor {
       height: rng.integer(25, 75),
       collisionType: CollisionType.Active,
       color: Color.Transparent,
+      collisionGroup: blockcolliderGroup,
       //vel: vec(0, 10),
       //acc: vec(0, 25),
     });
 
     // check width versus position
     if (this.pos.x + this.width / 2 > 145) this.pos.x = 140 - this.width;
-    if (this.pos.x - this.width / 2 < -145) this.pos.x = -130;
+    if (this.pos.x - this.width / 2 < -145) this.pos.x = -140 + this.width / 2;
 
     this.rng = rng;
 
