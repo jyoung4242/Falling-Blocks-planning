@@ -4,11 +4,13 @@ import { waterfill } from "../Shaders/waterfill";
 export class PitOverlay extends Actor {
   material: Material | null = null;
 
+  isFilling = false;
+
   fillAmount = 0;
   waterColor = Color.fromHex("#7b943bff");
   waterOpacity = 0.75;
 
-  fillTime = 0;
+  fillTime = 3000;
   fillTimeLimit = 100000;
 
   constructor() {
@@ -36,9 +38,10 @@ export class PitOverlay extends Actor {
   }
 
   onPreUpdate(engine: Engine, elapsed: number): void {
-    this.fillTime += elapsed;
+    if (this.isFilling) {
+      this.fillTime += elapsed;
+    }
     this.fillAmount = this.fillTime / this.fillTimeLimit;
-
     this.material?.update((s: Shader) => {
       s.trySetUniformFloat("u_fillAmount", this.fillAmount);
       s.trySetUniformFloatColor("u_waterColor", this.waterColor);
