@@ -1,10 +1,13 @@
 import { Actor, CollisionType, Color, DegreeOfFreedom, Engine, Material, Random, Shader, vec, Vector } from "excalibur";
 import { rockyMaterial } from "../Shaders/rockMaterial";
+import { rockyMaterial2 } from "../Shaders/rockMaterialv2";
 import { blockcolliderGroup } from "../collisionGroups";
 import { Signal } from "../Lib/Signals";
+import { Resources } from "../resources";
 
 export class Block extends Actor {
   material: Material | null = null;
+  rockTexture: WebGLTexture | null = null;
   rng: Random;
   maxSpeedX = 45;
   level = 1;
@@ -43,20 +46,30 @@ export class Block extends Actor {
   }
 
   onInitialize(engine: Engine): void {
+    let temprockTexture = this.rng.pickOne(loadRockTextures());
+    console.log(temprockTexture);
+
     this.material = engine.graphicsContext.createMaterial({
-      fragmentSource: rockyMaterial,
+      fragmentSource: rockyMaterial2,
       name: "rockyMaterial",
+      images: {
+        u_rockGraphic: temprockTexture,
+      },
     });
 
     this.graphics.material = this.material;
     const seed = this.rng.next();
 
+    console.log();
+
     this.material.update((s: Shader) => {
-      s.trySetUniformFloat("u_seed", seed);
-      s.trySetUniformFloat("u_roughness", 0.8);
-      s.trySetUniformFloatColor("u_baseColor", Color.fromHex("#9db01a"));
-      s.trySetUniformFloatColor("u_bgColor", Color.fromHex("#5b5c46"));
-      s.trySetUniformFloat("u_borderSize", 0.004);
+      s.trySetUniformFloat("u_radius", 0.25);
+      //s.setUniformFloatColor("u_innercolor", Color.Red);
+      s.setUniformFloatColor("u_borderColor", Color.White);
+      s.trySetUniformFloat("u_border", 0.05);
+      s.trySetUniformFloatVector("u_resolution", vec(this.width, this.height));
+      s.trySetUniformFloatColor("u_tintColor", Color.fromHex(`#799324`));
+      s.trySetUniformFloat("u_tintStrength", 0.25);
     });
 
     this.clearWarningSignal.send();
@@ -83,3 +96,22 @@ function randomHexColor(rng: Random) {
       .padStart(6, "0")
   );
 }
+
+const loadRockTextures = () => {
+  return [
+    Resources.rock1,
+    Resources.rock2,
+    Resources.rock3,
+    Resources.rock4,
+    Resources.rock5,
+    Resources.rock6,
+    Resources.rock7,
+    Resources.rock8,
+    Resources.rock9,
+    Resources.rock10,
+    Resources.rock11,
+    Resources.rock12,
+    Resources.rock13,
+    Resources.rock14,
+  ];
+};
