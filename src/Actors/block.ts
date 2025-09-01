@@ -1,24 +1,26 @@
 import { Actor, CollisionType, Color, DegreeOfFreedom, Engine, Material, Random, Shader, vec, Vector } from "excalibur";
 import { rockyMaterial } from "../Shaders/rockMaterial";
 import { blockcolliderGroup } from "../collisionGroups";
+import { Signal } from "../Lib/Signals";
 
 export class Block extends Actor {
   material: Material | null = null;
   rng: Random;
   maxSpeedX = 45;
   level = 1;
-  constructor(pos: Vector, seed: number, level: number = 1) {
+  resetPeriod = 1000;
+  restTik = 0;
+  clearWarningSignal = new Signal("clearWarning");
+  constructor(pos: Vector, seed: number, maxVel = 45, level = 1) {
     let rng = new Random(seed);
     super({
-      z: 1,
+      z: 11,
       pos: pos,
       width: rng.integer(25, 75),
       height: rng.integer(25, 75),
       collisionType: CollisionType.Active,
       color: Color.Transparent,
       collisionGroup: blockcolliderGroup,
-      //vel: vec(0, 10),
-      //acc: vec(0, 25),
     });
 
     // check width versus position
@@ -31,6 +33,8 @@ export class Block extends Actor {
     this.body.useGravity = true;
     this.body.bounciness = 0.05;
     this.body.mass = 100;
+
+    this.maxSpeedX = maxVel;
 
     //set max vel by level
     for (let i = 0; i < level; i++) {
@@ -54,6 +58,8 @@ export class Block extends Actor {
       s.trySetUniformFloatColor("u_bgColor", Color.fromHex("#5b5c46"));
       s.trySetUniformFloat("u_borderSize", 0.004);
     });
+
+    this.clearWarningSignal.send();
   }
 
   onPreUpdate(engine: Engine, elapsed: number): void {
@@ -61,6 +67,10 @@ export class Block extends Actor {
     if (Math.abs(this.vel.y) >= this.maxSpeedX) {
       if (this.vel.y > 0) this.vel.y = this.maxSpeedX;
       if (this.vel.y < 0) this.vel.y = -this.maxSpeedX;
+    }
+
+    if (this.body.isSleeping) {
+      console.log("sleeping");
     }
   }
 }

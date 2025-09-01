@@ -5,6 +5,7 @@ import {
   Collider,
   CollisionContact,
   CollisionType,
+  Color,
   DegreeOfFreedom,
   Engine,
   Keys,
@@ -18,6 +19,8 @@ import { Resources } from "../resources";
 import { staminaShader } from "../Shaders/stamina";
 import { playercolliderGroup } from "../collisionGroups";
 import { Block } from "./block";
+import { Exit } from "./exit";
+import { Signal } from "../Lib/Signals";
 
 // define stamina costs
 // jumping - 5 units
@@ -40,6 +43,14 @@ export class FrogPlayer extends Actor {
   isJumping = false;
   isOnGround = true;
   isFalling = false;
+  isBetweenLevels = false;
+
+  activeBlockCollisions: Collider[] = [];
+  ExitMetSignal = new Signal("exitMet");
+  startNextRoundSignal = new Signal("startNextRound");
+  fillSignal = new Signal("fill");
+  fillLevelSignal = new Signal("fillLevel");
+  fillLevel = 0;
 
   constructor() {
     super({
@@ -53,6 +64,11 @@ export class FrogPlayer extends Actor {
     this.body.useGravity = true;
     this.body.mass = 1;
     this.body.limitDegreeOfFreedom.push(DegreeOfFreedom.Rotation);
+    this.body.canSleep = false;
+
+    this.fillLevelSignal.listen((e: CustomEvent) => {
+      this.fillLevel = e.detail.params[0];
+    });
   }
 
   onInitialize(engine: Engine): void {
@@ -65,8 +81,37 @@ export class FrogPlayer extends Actor {
   }
 
   onCollisionStart(self: Collider, other: Collider, side: Side, contact: CollisionContact): void {
-    if (other.owner instanceof Block && side == Side.Top) {
+    //is collider in list
+
+    if (
+      !this.activeBlockCollisions.includes(other) &&
+      other.owner instanceof Block &&
+      side == Side.Top &&
+      !other.owner.body.isSleeping
+    ) {
+      this.activeBlockCollisions.push(other);
       this.currentStamina -= 25;
+    } else if (other.owner instanceof Exit) {
+      console.log("exit met");
+
+      // level completed
+      this.fillSignal.send([false, 0]);
+      this.ExitMetSignal.send();
+      this.isBetweenLevels = true;
+      //reset player's position
+      this.pos = vec(0, 0);
+      this.isFalling = true;
+      this.isOnGround = false;
+      this.isJumping = true;
+      this.fillLevel = 0;
+    } else {
+      return;
+    }
+  }
+
+  onCollisionEnd(self: Collider, other: Collider, side: Side, lastContact: CollisionContact): void {
+    if (this.activeBlockCollisions.includes(other) && other.owner instanceof Block) {
+      this.activeBlockCollisions.splice(this.activeBlockCollisions.indexOf(other), 1);
     }
   }
 
@@ -89,6 +134,33 @@ export class FrogPlayer extends Actor {
       s.trySetUniformFloat("u_currentStamina", this.currentStamina);
     });
 
+    //check fill level for stamina hit
+    if (this.fillLevel > 0) {
+      // get player percentage height
+      // pit height is 640
+      let playerPercent = Math.abs((this.pos.y - 320) / 640);
+      if (playerPercent < this.fillLevel) {
+        console.log("stamina hit", playerPercent, this.fillLevel);
+        this.currentStamina -= 0.05;
+        if (this.graphics.current) this.graphics.current.tint = Color.fromHex("#FFFFFF80");
+        if (this.currentStamina <= 0) {
+          // game over
+          console.log("Game Over");
+
+          // level completed
+          this.fillSignal.send([false, 0]);
+          this.ExitMetSignal.send();
+          this.isBetweenLevels = true;
+          //reset player's position
+          this.pos = vec(0, 0);
+          this.isFalling = true;
+          this.isOnGround = false;
+          this.isJumping = true;
+          this.fillLevel = 0;
+        }
+      }
+    }
+
     // Manage jumping - only start jump if on ground
     if (this.keysHeld.has(Keys.Space) && !this.isJumping && this.isOnGround && this.currentStamina > 5) {
       this.isJumping = true;
@@ -106,10 +178,13 @@ export class FrogPlayer extends Actor {
       this.vel.x = 0;
     }
 
+    if (this.vel.y > 0) {
+      this.isFalling = true;
+      this.vel.y *= 1.1;
+    }
+
     // then manage max speed
     if (Math.abs(this.vel.x) >= this.maxSpeedX) {
-      console.log("max speed reached");
-
       if (this.vel.x > 0) this.vel.x = this.maxSpeedX;
       if (this.vel.x < 0) this.vel.x = -this.maxSpeedX;
     }
@@ -124,6 +199,12 @@ export class FrogPlayer extends Actor {
       this.isOnGround = true;
       this.isJumping = false;
       this.vel.y = 0;
+      console.log("landed", this.isBetweenLevels);
+
+      if (this.isBetweenLevels) {
+        this.startNextRoundSignal.send();
+        this.isBetweenLevels = false;
+      }
     }
 
     //manage animations
@@ -157,13 +238,13 @@ export class FrogPlayer extends Actor {
     }
 
     //manage stamina
-    if (this.currentStamina <= 0) {
+    if (this.currentStamina < 0) {
       this.currentStamina = 0;
     } else if (this.currentStamina >= this.maxStamina) {
       this.currentStamina = this.maxStamina;
     } else {
       //slowly recharge stamina using charge rate
-      this.currentStamina += (this.staminaRechargeRate * elapsed) / 500;
+      this.currentStamina += (this.staminaRechargeRate * elapsed) / 250;
     }
   }
 }

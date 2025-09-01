@@ -1,9 +1,12 @@
 import { Actor, Color, Engine, Material, Shader, vec, Vector } from "excalibur";
 import { waterfill } from "../Shaders/waterfill";
+import { Signal } from "../Lib/Signals";
 
 export class PitOverlay extends Actor {
   material: Material | null = null;
 
+  fillSignal = new Signal("fill");
+  fillLevelSignal = new Signal("fillLevel");
   isFilling = false;
 
   fillAmount = 0;
@@ -13,6 +16,9 @@ export class PitOverlay extends Actor {
   fillTime = 3000;
   fillTimeLimit = 100000;
 
+  messagerate: number = 500;
+  messageTik: number = 0;
+
   constructor() {
     super({
       z: 10,
@@ -21,6 +27,14 @@ export class PitOverlay extends Actor {
       height: 640,
       anchor: Vector.Half,
       color: Color.Transparent,
+    });
+
+    this.fillSignal.listen((e: CustomEvent) => {
+      let params = e.detail.params;
+      this.isFilling = params[0];
+      if (params[0]) this.fillTimeLimit = params[1];
+      this.fillAmount = 0;
+      this.fillTime = 3000;
     });
   }
 
@@ -40,6 +54,12 @@ export class PitOverlay extends Actor {
   onPreUpdate(engine: Engine, elapsed: number): void {
     if (this.isFilling) {
       this.fillTime += elapsed;
+
+      this.messageTik += elapsed;
+      if (this.messageTik > this.messagerate) {
+        this.messageTik = 0;
+        this.fillLevelSignal.send([this.fillTime / this.fillTimeLimit]);
+      }
     }
     this.fillAmount = this.fillTime / this.fillTimeLimit;
     this.material?.update((s: Shader) => {
